@@ -1,0 +1,35 @@
+
+import { Button } from "@/components/ui/button";
+
+const UploadInstructions = () => {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
+      <div className="max-w-2xl mx-auto bg-gray-900 p-8 rounded-lg shadow-xl">
+        <h1 className="text-3xl font-bold mb-6">Upload Your Portfolio Images</h1>
+        
+        <div className="mb-8 text-left">
+          <h2 className="text-xl font-semibold mb-3">Instructions:</h2>
+          <ol className="list-decimal pl-5 space-y-3">
+            <li>Create a folder named <code className="bg-gray-800 px-2 py-1 rounded">/public/images</code> in your project.</li>
+            <li>Upload your portfolio images to this folder.</li>
+            <li>Make sure your filenames follow the format: <code className="bg-gray-800 px-2 py-1 rounded">ClientName - ProjectDescription.jpg</code></li>
+            <li>Images can be JPG, JPEG, or PNG formats.</li>
+            <li>Reload the page after uploading your images.</li>
+          </ol>
+        </div>
+        
+        <div className="text-amber-300 bg-amber-950/50 p-4 rounded-md mb-8">
+          <p className="font-medium">Filename Example:</p>
+          <p className="font-mono mt-1">Microsoft - Brochure Design for MS Office.jpg</p>
+          <p className="mt-2 text-sm">This will display "Microsoft" as the title and "Brochure Design for MS Office" as the subtitle.</p>
+        </div>
+        
+        <Button className="bg-white text-black hover:bg-gray-200">
+          <a href="/" className="block">Reload After Uploading Images</a>
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+export default UploadInstructions;

@@ -1,0 +1,193 @@
+
+import { useState, useEffect, useCallback } from "react";
+import { Button } from "@/components/ui/button";
+import { Play, Pause, ArrowLeft, ArrowRight } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { extractTitleAndSubtitle } from "@/lib/filename-parser";
+
+interface ImageSliderProps {
+  images: string[];
+}
+
+const TRANSITION_DURATION = 1000; // ms
+const DISPLAY_DURATION = 4000; // ms (includes transition time)
+
+const transitions = [
+  "transition-opacity duration-1000 ease-in-out", // fade
+  "transition-all duration-1000 ease-in-out translate-x-0 scale-100", // zoom
+  "transition-all duration-1000 ease-in-out translate-y-0", // slide up
+  "transition-all duration-1000 ease-in-out rotate-0 scale-100", // rotate and zoom
+];
+
+const ImageSlider: React.FC<ImageSliderProps> = ({ images }) => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [nextIndex, setNextIndex] = useState(1);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [transitionClass, setTransitionClass] = useState(transitions[0]);
+  const [exiting, setExiting] = useState(false);
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const [mouseMovement, setMouseMovement] = useState(false);
+
+  // For the demo, use these sample images and titles
+  const sampleImages = [
+    "/placeholder.svg", 
+    "/placeholder.svg",
+    "/placeholder.svg",
+  ];
+  
+  const imagesWithMeta = images.length > 0 ? 
+    images.map(img => {
+      const { title, subtitle } = extractTitleAndSubtitle(img.split('/').pop() || '');
+      return { path: img, title, subtitle };
+    }) : 
+    sampleImages.map((img, index) => ({
+      path: img,
+      title: `Sample Project ${index + 1}`,
+      subtitle: index === 0 ? "Web Application Design" : index === 1 ? "Brand Identity" : "UI/UX Design"
+    }));
+
+  const imagesCount = imagesWithMeta.length;
+
+  const nextSlide = useCallback(() => {
+    setExiting(true);
+    
+    // Randomly select a transition
+    const randomTransition = transitions[Math.floor(Math.random() * transitions.length)];
+    setTransitionClass(randomTransition);
+    
+    setTimeout(() => {
+      setCurrentIndex((prevIndex) => (prevIndex + 1) % imagesCount);
+      setNextIndex((prevIndex) => (prevIndex + 1) % imagesCount);
+      setExiting(false);
+    }, TRANSITION_DURATION);
+  }, [imagesCount]);
+
+  const prevSlide = useCallback(() => {
+    setExiting(true);
+    
+    // Randomly select a transition
+    const randomTransition = transitions[Math.floor(Math.random() * transitions.length)];
+    setTransitionClass(randomTransition);
+    
+    setTimeout(() => {
+      setCurrentIndex((prevIndex) => (prevIndex - 1 + imagesCount) % imagesCount);
+      setNextIndex((prevIndex) => (prevIndex - 1 + imagesCount) % imagesCount);
+      setExiting(false);
+    }, TRANSITION_DURATION);
+  }, [imagesCount]);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout | null = null;
+    
+    if (isPlaying) {
+      timer = setTimeout(nextSlide, DISPLAY_DURATION);
+    }
+    
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [currentIndex, isPlaying, nextSlide]);
+
+  // Hide controls after inactivity
+  useEffect(() => {
+    const handleMouseMove = () => {
+      setControlsVisible(true);
+      setMouseMovement(true);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    
+    let timer: NodeJS.Timeout | null = null;
+    if (mouseMovement) {
+      timer = setTimeout(() => {
+        setControlsVisible(false);
+        setMouseMovement(false);
+      }, 3000);
+    }
+    
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      if (timer) clearTimeout(timer);
+    };
+  }, [mouseMovement]);
+
+  const togglePlayPause = () => {
+    setIsPlaying(!isPlaying);
+  };
+
+  return (
+    <div className="relative w-full h-screen overflow-hidden bg-black">
+      {/* Current slide */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className={cn(
+          "w-full h-full flex flex-col items-center justify-center",
+          exiting ? "opacity-0 scale-95 -translate-y-4 rotate-3" : "opacity-100",
+          transitionClass
+        )}>
+          <div className="relative max-w-[1200px] max-h-[80vh] mx-auto">
+            <img 
+              src={imagesWithMeta[currentIndex].path} 
+              alt={imagesWithMeta[currentIndex].title}
+              className="object-contain max-w-full max-h-[80vh] mx-auto"
+            />
+          </div>
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6 text-white">
+            <h2 className="text-2xl font-bold">{imagesWithMeta[currentIndex].title}</h2>
+            <p className="text-lg opacity-80">{imagesWithMeta[currentIndex].subtitle}</p>
+          </div>
+        </div>
+      </div>
+      
+      {/* Progress bar */}
+      <div className="absolute top-0 left-0 right-0 h-1 bg-gray-800">
+        <div 
+          className="h-full bg-white transition-all duration-300 ease-out"
+          style={{ width: `${((currentIndex) / imagesCount) * 100}%` }}
+        ></div>
+      </div>
+      
+      {/* Controls */}
+      <div className={cn(
+        "absolute bottom-6 left-0 right-0 flex justify-center items-center gap-4 transition-opacity duration-300",
+        controlsVisible ? "opacity-100" : "opacity-0"
+      )}>
+        <Button 
+          variant="outline" 
+          size="icon"
+          className="rounded-full bg-black/50 border-white/20 hover:bg-white/20 text-white"
+          onClick={prevSlide}
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        
+        <Button 
+          variant="outline" 
+          size="icon"
+          className="rounded-full bg-black/50 border-white/20 hover:bg-white/20 text-white"
+          onClick={togglePlayPause}
+        >
+          {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+        </Button>
+        
+        <Button 
+          variant="outline" 
+          size="icon"
+          className="rounded-full bg-black/50 border-white/20 hover:bg-white/20 text-white"
+          onClick={nextSlide}
+        >
+          <ArrowRight className="h-5 w-5" />
+        </Button>
+      </div>
+      
+      {/* Slide counter */}
+      <div className={cn(
+        "absolute top-4 right-4 text-sm bg-black/50 text-white/80 px-3 py-1 rounded-full transition-opacity duration-300",
+        controlsVisible ? "opacity-100" : "opacity-0"
+      )}>
+        {currentIndex + 1} / {imagesCount}
+      </div>
+    </div>
+  );
+};
+
+export default ImageSlider;
