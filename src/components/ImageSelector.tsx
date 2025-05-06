@@ -2,23 +2,37 @@
 import React, { useState, useEffect } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { extractTitleAndSubtitle } from "@/lib/filename-parser";
-import { Check, X } from "lucide-react";
+import { Check, X, Maximize, AlignVerticalJustifyCenter } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface ImageSelectorProps {
   images: string[];
   selectedImages: string[];
-  onSave: (selected: string[]) => void;
+  onSave: (selected: string[], imageOptions?: Record<string, ImageOptions>) => void;
+}
+
+interface ImageOptions {
+  fullWidth: boolean;
+  cropFromTop: boolean;
 }
 
 const ImageSelector: React.FC<ImageSelectorProps> = ({ images, selectedImages, onSave }) => {
   const [selected, setSelected] = useState<string[]>(selectedImages);
   const [availableImages, setAvailableImages] = useState<string[]>([]);
+  const [imageOptions, setImageOptions] = useState<Record<string, ImageOptions>>({});
 
   useEffect(() => {
     // Initialize available images (those not in selected)
     const available = images.filter(img => !selected.includes(img));
     setAvailableImages(available);
-  }, [images, selected]);
+    
+    // Initialize image options for all images
+    const initialOptions: Record<string, ImageOptions> = {};
+    images.forEach(img => {
+      initialOptions[img] = { fullWidth: false, cropFromTop: true };
+    });
+    setImageOptions(prev => ({...initialOptions, ...prev}));
+  }, [images]);
 
   const handleToggleSelect = (image: string) => {
     if (selected.includes(image)) {
@@ -50,11 +64,21 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({ images, selectedImages, o
   };
 
   const handleSave = () => {
-    onSave(selected);
+    onSave(selected, imageOptions);
   };
 
   const handleCancel = () => {
     onSave(selectedImages); // Revert to original selection
+  };
+
+  const handleOptionChange = (image: string, option: keyof ImageOptions, value: boolean) => {
+    setImageOptions(prev => ({
+      ...prev,
+      [image]: {
+        ...prev[image],
+        [option]: value
+      }
+    }));
   };
 
   return (
@@ -89,11 +113,13 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({ images, selectedImages, o
                   <div
                     {...provided.droppableProps}
                     ref={provided.innerRef}
-                    className="space-y-2 min-h-[200px]"
+                    className="space-y-3 min-h-[200px]"
                   >
                     {selected.length > 0 ? (
                       selected.map((image, index) => {
                         const { title, subtitle } = extractTitleAndSubtitle(image.split('/').pop() || '');
+                        const options = imageOptions[image] || { fullWidth: false, cropFromTop: true };
+                        
                         return (
                           <Draggable key={image} draggableId={image} index={index}>
                             {(provided) => (
@@ -101,25 +127,65 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({ images, selectedImages, o
                                 ref={provided.innerRef}
                                 {...provided.draggableProps}
                                 {...provided.dragHandleProps}
-                                className="p-3 bg-gray-800 rounded-lg flex gap-3 items-center cursor-move hover:bg-gray-700 transition-colors"
+                                className="bg-gray-800 rounded-lg cursor-move hover:bg-gray-700 transition-colors overflow-hidden"
                               >
-                                <div className="flex-shrink-0 w-16 h-16 relative rounded overflow-hidden">
-                                  <img 
-                                    src={image}
-                                    alt={title}
-                                    className="object-cover w-full h-full"
-                                  />
+                                <div className="p-3 flex gap-3 items-center">
+                                  <div className="flex-shrink-0 w-16 h-16 relative rounded overflow-hidden">
+                                    <img 
+                                      src={image}
+                                      alt={title}
+                                      className="object-cover w-full h-full"
+                                    />
+                                  </div>
+                                  <div className="flex-grow overflow-hidden">
+                                    <p className="font-medium truncate">{title}</p>
+                                    <p className="text-sm text-gray-400 truncate">{subtitle}</p>
+                                  </div>
+                                  <button 
+                                    onClick={() => handleToggleSelect(image)}
+                                    className="p-1 bg-gray-700 hover:bg-red-700 rounded transition-colors"
+                                  >
+                                    <X size={18} />
+                                  </button>
                                 </div>
-                                <div className="flex-grow overflow-hidden">
-                                  <p className="font-medium truncate">{title}</p>
-                                  <p className="text-sm text-gray-400 truncate">{subtitle}</p>
+                                
+                                <div className="px-3 pb-3 pt-1 border-t border-gray-700">
+                                  <div className="flex flex-col gap-2">
+                                    <div className="flex items-center gap-2">
+                                      <Checkbox 
+                                        id={`fullWidth-${index}`}
+                                        checked={options.fullWidth}
+                                        onCheckedChange={(checked) => 
+                                          handleOptionChange(image, "fullWidth", checked === true)
+                                        }
+                                      />
+                                      <label 
+                                        htmlFor={`fullWidth-${index}`}
+                                        className="text-sm flex items-center gap-1 cursor-pointer"
+                                      >
+                                        <Maximize size={14} /> Full width (may crop height)
+                                      </label>
+                                    </div>
+                                    
+                                    {options.fullWidth && (
+                                      <div className="flex items-center gap-2 pl-6">
+                                        <Checkbox 
+                                          id={`cropTop-${index}`}
+                                          checked={options.cropFromTop}
+                                          onCheckedChange={(checked) => 
+                                            handleOptionChange(image, "cropFromTop", checked === true)
+                                          }
+                                        />
+                                        <label 
+                                          htmlFor={`cropTop-${index}`} 
+                                          className="text-sm flex items-center gap-1 cursor-pointer"
+                                        >
+                                          <AlignVerticalJustifyCenter size={14} /> Crop from top (unchecked crops from bottom)
+                                        </label>
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
-                                <button 
-                                  onClick={() => handleToggleSelect(image)}
-                                  className="p-1 bg-gray-700 hover:bg-red-700 rounded transition-colors"
-                                >
-                                  <X size={18} />
-                                </button>
                               </div>
                             )}
                           </Draggable>

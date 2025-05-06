@@ -4,11 +4,17 @@ import ImageSlider from "@/components/ImageSlider";
 import UploadInstructions from "@/components/UploadInstructions";
 import ImageSelector from "@/components/ImageSelector";
 
+interface ImageOptions {
+  fullWidth: boolean;
+  cropFromTop: boolean;
+}
+
 const Index = () => {
   const [images, setImages] = useState<string[]>([]);
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showSelector, setShowSelector] = useState(false);
+  const [imageOptions, setImageOptions] = useState<Record<string, ImageOptions>>({});
 
   useEffect(() => {
     // Load images from the /public/images directory
@@ -32,6 +38,14 @@ const Index = () => {
         
         setImages(imageFiles);
         setSelectedImages(imageFiles); // Initially select all images
+        
+        // Initialize image options
+        const initialOptions: Record<string, ImageOptions> = {};
+        imageFiles.forEach(img => {
+          initialOptions[img] = { fullWidth: false, cropFromTop: true };
+        });
+        setImageOptions(initialOptions);
+        
         console.log("Found images:", imageFiles);
         setIsLoading(false);
       } catch (error) {
@@ -47,8 +61,11 @@ const Index = () => {
     setShowSelector(!showSelector);
   };
 
-  const handleSaveSelection = (selected: string[]) => {
+  const handleSaveSelection = (selected: string[], options?: Record<string, ImageOptions>) => {
     setSelectedImages(selected);
+    if (options) {
+      setImageOptions(options);
+    }
     setShowSelector(false);
   };
 
@@ -74,7 +91,10 @@ const Index = () => {
               onSave={handleSaveSelection} 
             />
           ) : (
-            <ImageSlider images={selectedImages} />
+            <ImageSlider 
+              images={selectedImages} 
+              imageOptions={imageOptions} 
+            />
           )}
         </>
       ) : (

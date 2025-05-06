@@ -5,11 +5,17 @@ import { Play, Pause, ArrowLeft, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { extractTitleAndSubtitle } from "@/lib/filename-parser";
 
-interface ImageSliderProps {
-  images: string[];
+interface ImageOptions {
+  fullWidth: boolean;
+  cropFromTop: boolean;
 }
 
-const TRANSITION_DURATION = 1000; // ms
+interface ImageSliderProps {
+  images: string[];
+  imageOptions?: Record<string, ImageOptions>;
+}
+
+const TRANSITION_DURATION = 300; // ms - reduced from 1000ms for faster transitions
 const DISPLAY_DURATION = 4000; // ms (includes transition time)
 
 // Define transition effects as requested
@@ -17,36 +23,36 @@ const transitions = [
   {
     entering: "opacity-0",
     exiting: "opacity-0",
-    active: "transition-opacity duration-1000 ease-in-out opacity-100",
+    active: "transition-opacity duration-300 ease-in-out opacity-100", // reduced duration
     name: "fade" // fade through black
   },
   {
     entering: "translate-x-full",
     exiting: "-translate-x-full",
-    active: "transition-all duration-1000 ease-in-out translate-x-0",
+    active: "transition-all duration-300 ease-in-out translate-x-0", // reduced duration
     name: "wipe-left-to-right" // wipe from left to right
   },
   {
     entering: "-translate-x-full",
     exiting: "translate-x-full",
-    active: "transition-all duration-1000 ease-in-out translate-x-0",
+    active: "transition-all duration-300 ease-in-out translate-x-0", // reduced duration
     name: "wipe-right-to-left" // wipe from right to left
   },
   {
     entering: "scale-50 opacity-0",
     exiting: "scale-50 opacity-0",
-    active: "transition-all duration-1000 ease-in-out scale-100 opacity-100",
+    active: "transition-all duration-300 ease-in-out scale-100 opacity-100", // reduced duration
     name: "shrink-grow" // shrink and grow
   },
   {
     entering: "opacity-0 brightness-200",
     exiting: "opacity-0 brightness-200",
-    active: "transition-all duration-1000 ease-in-out opacity-100 brightness-100",
+    active: "transition-all duration-300 ease-in-out opacity-100 brightness-100", // reduced duration
     name: "fade-through-white" // fade through white
   },
 ];
 
-const ImageSlider: React.FC<ImageSliderProps> = ({ images }) => {
+const ImageSlider: React.FC<ImageSliderProps> = ({ images, imageOptions = {} }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [nextIndex, setNextIndex] = useState(1);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -65,12 +71,18 @@ const ImageSlider: React.FC<ImageSliderProps> = ({ images }) => {
   const imagesWithMeta = images.length > 0 ? 
     images.map(img => {
       const { title, subtitle } = extractTitleAndSubtitle(img.split('/').pop() || '');
-      return { path: img, title, subtitle };
+      return { 
+        path: img, 
+        title, 
+        subtitle,
+        options: imageOptions[img] || { fullWidth: false, cropFromTop: true }
+      };
     }) : 
     sampleImages.map((img, index) => ({
       path: img,
       title: `Sample Project ${index + 1}`,
-      subtitle: index === 0 ? "Web Application Design" : index === 1 ? "Brand Identity" : "UI/UX Design"
+      subtitle: index === 0 ? "Web Application Design" : index === 1 ? "Brand Identity" : "UI/UX Design",
+      options: { fullWidth: false, cropFromTop: true }
     }));
 
   const imagesCount = imagesWithMeta.length;
@@ -145,6 +157,21 @@ const ImageSlider: React.FC<ImageSliderProps> = ({ images }) => {
     setIsPlaying(!isPlaying);
   };
 
+  const getImageStyle = (index: number) => {
+    const options = imagesWithMeta[index].options;
+    
+    if (options.fullWidth) {
+      return {
+        objectFit: "cover",
+        objectPosition: options.cropFromTop ? "top" : "bottom"
+      } as React.CSSProperties;
+    }
+    
+    return {
+      objectFit: "contain"
+    } as React.CSSProperties;
+  };
+
   return (
     <div className="relative w-full h-screen overflow-hidden bg-black">
       {/* Current slide */}
@@ -155,11 +182,12 @@ const ImageSlider: React.FC<ImageSliderProps> = ({ images }) => {
             isTransitioning ? currentTransition.exiting : currentTransition.active
           )}
         >
-          <div className="relative max-w-[1200px] max-h-[80vh] mx-auto">
+          <div className="relative max-w-[1200px] max-h-[80vh] mx-auto w-full h-full flex items-center justify-center">
             <img 
               src={imagesWithMeta[currentIndex].path} 
               alt={imagesWithMeta[currentIndex].title}
-              className="object-contain max-w-full max-h-[80vh] mx-auto"
+              className="max-w-full max-h-[80vh] mx-auto w-full"
+              style={getImageStyle(currentIndex)}
             />
           </div>
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6 text-white">
