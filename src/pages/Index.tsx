@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import ImageSlider from "@/components/ImageSlider";
 import UploadInstructions from "@/components/UploadInstructions";
 import ImageSelector from "@/components/ImageSelector";
+import { saveSlideConfig, loadSlideConfig } from "@/lib/storage-service";
+import { toast } from "@/components/ui/use-toast";
 
 interface ImageOptions {
   fullWidth: boolean;
@@ -15,16 +17,13 @@ const Index = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [showSelector, setShowSelector] = useState(false);
   const [imageOptions, setImageOptions] = useState<Record<string, ImageOptions>>({});
+  const [configLoaded, setConfigLoaded] = useState(false);
 
   useEffect(() => {
     // Load images from the /public/images directory
     const fetchImages = async () => {
       try {
-        const imageFiles = [];
-        
-        // In a real production environment, we would need a server-side solution
-        // to read directory contents. For now, we'll attempt to find images with common patterns
-        // from the /public/images/ directory
+        const imageFiles: string[] = [];
         
         // Get all image files from public/images directory
         const imageContext = import.meta.glob('/public/images/*.{jpg,jpeg,png}', { eager: true });
@@ -32,25 +31,68 @@ const Index = () => {
         for (const path in imageContext) {
           const fileName = path.split('/').pop() || '';
           if (fileName !== '.gitkeep' && fileName !== 'gitkeep.txt' && !fileName.startsWith('.')) {
-            imageFiles.push(path.replace('/public', ''));
+            // Important: Use the correct path format for the browser
+            const imagePath = path.replace('/public', '');
+            imageFiles.push(imagePath);
           }
         }
-        
+
+        console.log("Found images:", imageFiles);
         setImages(imageFiles);
-        setSelectedImages(imageFiles); // Initially select all images
         
         // Initialize image options
         const initialOptions: Record<string, ImageOptions> = {};
         imageFiles.forEach(img => {
           initialOptions[img] = { fullWidth: false, cropFromTop: true };
         });
-        setImageOptions(initialOptions);
         
-        console.log("Found images:", imageFiles);
+        // Try to load saved configuration
+        const savedConfig = loadSlideConfig();
+        
+        if (savedConfig && savedConfig.selectedImages.length > 0) {
+          // Verify that saved images still exist in the current image list
+          const validSelectedImages = savedConfig.selectedImages.filter(
+            img => imageFiles.includes(img)
+          );
+          
+          // If we have valid selected images, use the saved configuration
+          if (validSelectedImages.length > 0) {
+            setSelectedImages(validSelectedImages);
+            
+            // Filter image options to only include existing images
+            const validImageOptions: Record<string, ImageOptions> = {};
+            for (const [key, value] of Object.entries(savedConfig.imageOptions)) {
+              if (imageFiles.includes(key)) {
+                validImageOptions[key] = value;
+              }
+            }
+            
+            setImageOptions(validImageOptions);
+            toast({
+              title: "Configuration loaded",
+              description: `Loaded ${validSelectedImages.length} images from saved settings`,
+            });
+          } else {
+            // If no valid images found in saved config, use all images
+            setSelectedImages(imageFiles);
+            setImageOptions(initialOptions);
+          }
+        } else {
+          // No saved configuration, use all images
+          setSelectedImages(imageFiles);
+          setImageOptions(initialOptions);
+        }
+        
+        setConfigLoaded(true);
         setIsLoading(false);
       } catch (error) {
         console.error("Error loading images:", error);
         setIsLoading(false);
+        toast({
+          variant: "destructive",
+          title: "Error loading images",
+          description: "There was a problem loading your images. Please try again.",
+        });
       }
     };
 
@@ -63,9 +105,23 @@ const Index = () => {
 
   const handleSaveSelection = (selected: string[], options?: Record<string, ImageOptions>) => {
     setSelectedImages(selected);
+    
     if (options) {
       setImageOptions(options);
     }
+    
+    // Save configuration to localStorage
+    saveSlideConfig({
+      selectedImages: selected,
+      imageOptions: options || imageOptions,
+      lastUpdated: Date.now()
+    });
+    
+    toast({
+      title: "Changes saved",
+      description: `Presentation updated with ${selected.length} images`,
+    });
+    
     setShowSelector(false);
   };
 
@@ -89,6 +145,7 @@ const Index = () => {
               images={images} 
               selectedImages={selectedImages} 
               onSave={handleSaveSelection} 
+              imageOptions={imageOptions}
             />
           ) : (
             <ImageSlider 

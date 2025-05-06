@@ -23,32 +23,32 @@ const transitions = [
   {
     entering: "opacity-0",
     exiting: "opacity-0",
-    active: "transition-opacity duration-300 ease-in-out opacity-100", // reduced duration
+    active: "transition-opacity duration-300 ease-in-out opacity-100",
     name: "fade" // fade through black
   },
   {
     entering: "translate-x-full",
     exiting: "-translate-x-full",
-    active: "transition-all duration-300 ease-in-out translate-x-0", // reduced duration
-    name: "wipe-left-to-right" // wipe from left to right
+    active: "transition-all duration-300 ease-in-out translate-x-0",
+    name: "wipe-left-to-right"
   },
   {
     entering: "-translate-x-full",
     exiting: "translate-x-full",
-    active: "transition-all duration-300 ease-in-out translate-x-0", // reduced duration
-    name: "wipe-right-to-left" // wipe from right to left
+    active: "transition-all duration-300 ease-in-out translate-x-0",
+    name: "wipe-right-to-left"
   },
   {
     entering: "scale-50 opacity-0",
     exiting: "scale-50 opacity-0",
-    active: "transition-all duration-300 ease-in-out scale-100 opacity-100", // reduced duration
-    name: "shrink-grow" // shrink and grow
+    active: "transition-all duration-300 ease-in-out scale-100 opacity-100",
+    name: "shrink-grow"
   },
   {
     entering: "opacity-0 brightness-200",
     exiting: "opacity-0 brightness-200",
-    active: "transition-all duration-300 ease-in-out opacity-100 brightness-100", // reduced duration
-    name: "fade-through-white" // fade through white
+    active: "transition-all duration-300 ease-in-out opacity-100 brightness-100",
+    name: "fade-through-white"
   },
 ];
 
@@ -60,6 +60,7 @@ const ImageSlider: React.FC<ImageSliderProps> = ({ images, imageOptions = {} }) 
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [mouseMovement, setMouseMovement] = useState(false);
+  const [loadError, setLoadError] = useState<Record<string, boolean>>({});
 
   // For the demo, use these sample images and titles
   const sampleImages = [
@@ -157,6 +158,11 @@ const ImageSlider: React.FC<ImageSliderProps> = ({ images, imageOptions = {} }) 
     setIsPlaying(!isPlaying);
   };
 
+  const handleImageError = (imagePath: string) => {
+    console.error(`Error loading image: ${imagePath}`);
+    setLoadError(prev => ({ ...prev, [imagePath]: true }));
+  };
+
   const getImageStyle = (index: number) => {
     const options = imagesWithMeta[index].options;
     
@@ -188,7 +194,15 @@ const ImageSlider: React.FC<ImageSliderProps> = ({ images, imageOptions = {} }) 
               alt={imagesWithMeta[currentIndex].title}
               className="max-w-full max-h-[80vh] mx-auto w-full"
               style={getImageStyle(currentIndex)}
+              onError={() => handleImageError(imagesWithMeta[currentIndex].path)}
             />
+            {loadError[imagesWithMeta[currentIndex].path] && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900">
+                <div className="text-4xl text-gray-500 mb-4">📷</div>
+                <p className="text-white">Image could not be loaded</p>
+                <p className="text-sm text-gray-400 mt-1">{imagesWithMeta[currentIndex].path}</p>
+              </div>
+            )}
           </div>
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6 text-white">
             <h2 className="text-2xl font-bold">{imagesWithMeta[currentIndex].title}</h2>

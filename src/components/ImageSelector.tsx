@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 interface ImageSelectorProps {
   images: string[];
   selectedImages: string[];
+  imageOptions?: Record<string, ImageOptions>;
   onSave: (selected: string[], imageOptions?: Record<string, ImageOptions>) => void;
 }
 
@@ -16,10 +17,10 @@ interface ImageOptions {
   cropFromTop: boolean;
 }
 
-const ImageSelector: React.FC<ImageSelectorProps> = ({ images, selectedImages, onSave }) => {
+const ImageSelector: React.FC<ImageSelectorProps> = ({ images, selectedImages, onSave, imageOptions = {} }) => {
   const [selected, setSelected] = useState<string[]>(selectedImages);
   const [availableImages, setAvailableImages] = useState<string[]>([]);
-  const [imageOptions, setImageOptions] = useState<Record<string, ImageOptions>>({});
+  const [options, setOptions] = useState<Record<string, ImageOptions>>(imageOptions);
 
   useEffect(() => {
     // Initialize available images (those not in selected)
@@ -29,9 +30,9 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({ images, selectedImages, o
     // Initialize image options for all images
     const initialOptions: Record<string, ImageOptions> = {};
     images.forEach(img => {
-      initialOptions[img] = { fullWidth: false, cropFromTop: true };
+      initialOptions[img] = options[img] || { fullWidth: false, cropFromTop: true };
     });
-    setImageOptions(prev => ({...initialOptions, ...prev}));
+    setOptions(initialOptions);
   }, [images]);
 
   const handleToggleSelect = (image: string) => {
@@ -64,7 +65,7 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({ images, selectedImages, o
   };
 
   const handleSave = () => {
-    onSave(selected, imageOptions);
+    onSave(selected, options);
   };
 
   const handleCancel = () => {
@@ -72,13 +73,18 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({ images, selectedImages, o
   };
 
   const handleOptionChange = (image: string, option: keyof ImageOptions, value: boolean) => {
-    setImageOptions(prev => ({
+    setOptions(prev => ({
       ...prev,
       [image]: {
         ...prev[image],
         [option]: value
       }
     }));
+  };
+
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    // Set a fallback or placeholder for images that fail to load
+    e.currentTarget.src = '/placeholder.svg';
   };
 
   return (
@@ -118,7 +124,7 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({ images, selectedImages, o
                     {selected.length > 0 ? (
                       selected.map((image, index) => {
                         const { title, subtitle } = extractTitleAndSubtitle(image.split('/').pop() || '');
-                        const options = imageOptions[image] || { fullWidth: false, cropFromTop: true };
+                        const imgOptions = options[image] || { fullWidth: false, cropFromTop: true };
                         
                         return (
                           <Draggable key={image} draggableId={image} index={index}>
@@ -135,6 +141,7 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({ images, selectedImages, o
                                       src={image}
                                       alt={title}
                                       className="object-cover w-full h-full"
+                                      onError={handleImageError}
                                     />
                                   </div>
                                   <div className="flex-grow overflow-hidden">
@@ -154,7 +161,7 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({ images, selectedImages, o
                                     <div className="flex items-center gap-2">
                                       <Checkbox 
                                         id={`fullWidth-${index}`}
-                                        checked={options.fullWidth}
+                                        checked={imgOptions.fullWidth}
                                         onCheckedChange={(checked) => 
                                           handleOptionChange(image, "fullWidth", checked === true)
                                         }
@@ -167,11 +174,11 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({ images, selectedImages, o
                                       </label>
                                     </div>
                                     
-                                    {options.fullWidth && (
+                                    {imgOptions.fullWidth && (
                                       <div className="flex items-center gap-2 pl-6">
                                         <Checkbox 
                                           id={`cropTop-${index}`}
-                                          checked={options.cropFromTop}
+                                          checked={imgOptions.cropFromTop}
                                           onCheckedChange={(checked) => 
                                             handleOptionChange(image, "cropFromTop", checked === true)
                                           }
@@ -221,6 +228,7 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({ images, selectedImages, o
                           src={image}
                           alt={title}
                           className="object-cover w-full h-full"
+                          onError={handleImageError}
                         />
                       </div>
                       <div className="flex-grow overflow-hidden">
