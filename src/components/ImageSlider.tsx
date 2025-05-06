@@ -12,19 +12,46 @@ interface ImageSliderProps {
 const TRANSITION_DURATION = 1000; // ms
 const DISPLAY_DURATION = 4000; // ms (includes transition time)
 
+// Define transition effects as requested
 const transitions = [
-  "transition-opacity duration-1000 ease-in-out", // fade
-  "transition-all duration-1000 ease-in-out translate-x-0 scale-100", // zoom
-  "transition-all duration-1000 ease-in-out translate-y-0", // slide up
-  "transition-all duration-1000 ease-in-out rotate-0 scale-100", // rotate and zoom
+  {
+    entering: "opacity-0",
+    exiting: "opacity-0",
+    active: "transition-opacity duration-1000 ease-in-out opacity-100",
+    name: "fade" // fade through black
+  },
+  {
+    entering: "translate-x-full",
+    exiting: "-translate-x-full",
+    active: "transition-all duration-1000 ease-in-out translate-x-0",
+    name: "wipe-left-to-right" // wipe from left to right
+  },
+  {
+    entering: "-translate-x-full",
+    exiting: "translate-x-full",
+    active: "transition-all duration-1000 ease-in-out translate-x-0",
+    name: "wipe-right-to-left" // wipe from right to left
+  },
+  {
+    entering: "scale-50 opacity-0",
+    exiting: "scale-50 opacity-0",
+    active: "transition-all duration-1000 ease-in-out scale-100 opacity-100",
+    name: "shrink-grow" // shrink and grow
+  },
+  {
+    entering: "opacity-0 brightness-200",
+    exiting: "opacity-0 brightness-200",
+    active: "transition-all duration-1000 ease-in-out opacity-100 brightness-100",
+    name: "fade-through-white" // fade through white
+  },
 ];
 
 const ImageSlider: React.FC<ImageSliderProps> = ({ images }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [nextIndex, setNextIndex] = useState(1);
   const [isPlaying, setIsPlaying] = useState(true);
-  const [transitionClass, setTransitionClass] = useState(transitions[0]);
-  const [exiting, setExiting] = useState(false);
+  const [currentTransition, setCurrentTransition] = useState(transitions[0]);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [mouseMovement, setMouseMovement] = useState(false);
 
@@ -48,45 +75,48 @@ const ImageSlider: React.FC<ImageSliderProps> = ({ images }) => {
 
   const imagesCount = imagesWithMeta.length;
 
+  const getRandomTransition = () => {
+    const randomIndex = Math.floor(Math.random() * transitions.length);
+    return transitions[randomIndex];
+  };
+
   const nextSlide = useCallback(() => {
-    setExiting(true);
+    if (isTransitioning) return;
     
-    // Randomly select a transition
-    const randomTransition = transitions[Math.floor(Math.random() * transitions.length)];
-    setTransitionClass(randomTransition);
+    setIsTransitioning(true);
+    setCurrentTransition(getRandomTransition());
     
     setTimeout(() => {
       setCurrentIndex((prevIndex) => (prevIndex + 1) % imagesCount);
       setNextIndex((prevIndex) => (prevIndex + 1) % imagesCount);
-      setExiting(false);
+      setIsTransitioning(false);
     }, TRANSITION_DURATION);
-  }, [imagesCount]);
+  }, [imagesCount, isTransitioning]);
 
   const prevSlide = useCallback(() => {
-    setExiting(true);
+    if (isTransitioning) return;
     
-    // Randomly select a transition
-    const randomTransition = transitions[Math.floor(Math.random() * transitions.length)];
-    setTransitionClass(randomTransition);
+    setIsTransitioning(true);
+    setCurrentTransition(getRandomTransition());
     
     setTimeout(() => {
       setCurrentIndex((prevIndex) => (prevIndex - 1 + imagesCount) % imagesCount);
       setNextIndex((prevIndex) => (prevIndex - 1 + imagesCount) % imagesCount);
-      setExiting(false);
+      setIsTransitioning(false);
     }, TRANSITION_DURATION);
-  }, [imagesCount]);
+  }, [imagesCount, isTransitioning]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout | null = null;
     
-    if (isPlaying) {
+    if (isPlaying && !isTransitioning) {
       timer = setTimeout(nextSlide, DISPLAY_DURATION);
     }
     
     return () => {
       if (timer) clearTimeout(timer);
     };
-  }, [currentIndex, isPlaying, nextSlide]);
+  }, [currentIndex, isPlaying, nextSlide, isTransitioning]);
 
   // Hide controls after inactivity
   useEffect(() => {
@@ -118,12 +148,13 @@ const ImageSlider: React.FC<ImageSliderProps> = ({ images }) => {
   return (
     <div className="relative w-full h-screen overflow-hidden bg-black">
       {/* Current slide */}
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div className={cn(
-          "w-full h-full flex flex-col items-center justify-center",
-          exiting ? "opacity-0 scale-95 -translate-y-4 rotate-3" : "opacity-100",
-          transitionClass
-        )}>
+      <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
+        <div 
+          className={cn(
+            "w-full h-full flex flex-col items-center justify-center",
+            isTransitioning ? currentTransition.exiting : currentTransition.active
+          )}
+        >
           <div className="relative max-w-[1200px] max-h-[80vh] mx-auto">
             <img 
               src={imagesWithMeta[currentIndex].path} 
@@ -136,6 +167,14 @@ const ImageSlider: React.FC<ImageSliderProps> = ({ images }) => {
             <p className="text-lg opacity-80">{imagesWithMeta[currentIndex].subtitle}</p>
           </div>
         </div>
+      </div>
+      
+      {/* Transition effect name indicator */}
+      <div className={cn(
+        "absolute top-16 right-4 bg-black/50 text-white/80 px-3 py-1 rounded-full transition-opacity duration-300",
+        controlsVisible ? "opacity-100" : "opacity-0"
+      )}>
+        Effect: {currentTransition.name}
       </div>
       
       {/* Progress bar */}
@@ -156,6 +195,7 @@ const ImageSlider: React.FC<ImageSliderProps> = ({ images }) => {
           size="icon"
           className="rounded-full bg-black/50 border-white/20 hover:bg-white/20 text-white"
           onClick={prevSlide}
+          disabled={isTransitioning}
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
@@ -174,6 +214,7 @@ const ImageSlider: React.FC<ImageSliderProps> = ({ images }) => {
           size="icon"
           className="rounded-full bg-black/50 border-white/20 hover:bg-white/20 text-white"
           onClick={nextSlide}
+          disabled={isTransitioning}
         >
           <ArrowRight className="h-5 w-5" />
         </Button>
